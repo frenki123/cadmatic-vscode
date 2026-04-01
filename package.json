@@ -31,6 +31,19 @@
         "path": "./syntaxes/cadmatic.tmLanguage.json"
       }
     ],
+    "snippets": [
+      {
+        "language": "cadmatic",
+        "path": "./snippets/cadmatic.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[cadmatic]": {
+        "editor.bracketPairColorization.enabled": true,
+        "editor.wordSeparators": "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?",
+        "editor.tabSize": 4
+      }
+    },
     "configuration": {
       "title": "CADMATIC",
       "properties": {

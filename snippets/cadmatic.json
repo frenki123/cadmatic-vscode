@@ -1,0 +1,116 @@
+{
+  "Function Definition": {
+    "prefix": "func",
+    "body": [
+      "${1:name}(${2:parameters}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create a new function definition"
+  },
+  "Main Function": {
+    "prefix": "main",
+    "body": [
+      "main() {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create a main function"
+  },
+  "If Statement": {
+    "prefix": "if",
+    "body": [
+      "if (${1:condition}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create an if statement"
+  },
+  "If Else Statement": {
+    "prefix": "ife",
+    "body": [
+      "if (${1:condition}) {",
+      "\t$2",
+      "} else {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create an if-else statement"
+  },
+  "While Loop": {
+    "prefix": "while",
+    "body": [
+      "while (${1:condition}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create a while loop"
+  },
+  "For Loop": {
+    "prefix": "for",
+    "body": [
+      "for (${1:i} = ${2:0}; ${1:i} < ${3:count}; ${1:i}++) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create a for loop"
+  },
+  "Loop Statement": {
+    "prefix": "loop",
+    "body": [
+      "loop (${1:count}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create a loop statement (repeat N times)"
+  },
+  "Global Declaration": {
+    "prefix": "global",
+    "body": [
+      "global ${1:type} ${2:name};$0"
+    ],
+    "description": "Declare a global variable"
+  },
+  "Extern Declaration": {
+    "prefix": "extern",
+    "body": [
+      "extern ${1:name};$0"
+    ],
+    "description": "Declare an extern function"
+  },
+  "Variable Declaration": {
+    "prefix": "var",
+    "body": [
+      "${1:type} ${2:name};$0"
+    ],
+    "description": "Declare a local variable"
+  },
+  "Return Statement": {
+    "prefix": "ret",
+    "body": [
+      "return ${1:value};$0"
+    ],
+    "description": "Return from a function"
+  },
+  "Include Directive": {
+    "prefix": "inc",
+    "body": [
+      "#include \"${1:path}\"$0"
+    ],
+    "description": "Include another file"
+  },
+  "Define Directive": {
+    "prefix": "def",
+    "body": [
+      "#define ${1:name} ${2:value}$0"
+    ],
+    "description": "Define a constant or macro"
+  },
+  "Define Function": {
+    "prefix": "deffunc",
+    "body": [
+      "#define ${1:name}(${2:args}) ${3:value}$0"
+    ],
+    "description": "Define a function-like macro"
+  }
+}
