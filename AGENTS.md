@@ -6,15 +6,14 @@ VSCode extension for CADMATIC language server and syntax highlighting.
 
 - **Language**: TypeScript (strict mode)
 - **Syntax Highlighting**: Tree-sitter (NOT TextMate)
-- **LSP Integration**: Communicates with `../cadmatic-lsp-new` via stdio
+- **LSP Integration**: Communicates with `../cadmatic-lsp` via stdio
 - **Grammar**: `../tree-sitter-cadmatic` (tree-sitter queries already exist)
 - **Source of Truth**: `LSP.md` for language semantics and editor behavior
 
 ## Related Projects
 
-- LSP implementation: `/home/frenki/projects/cadmatic-lsp-new`
-- Tree-sitter grammar: `/home/frenki/projects/tree-sitter-cadmatic`
-- Original LSP: `/home/frenki/projects/cadmatic-lsp`
+- LSP implementation: `../cadmatic-lsp`
+- Tree-sitter grammar: `../tree-sitter-cadmatic`
 
 ## Build and Test Commands
 
@@ -102,7 +101,7 @@ Ensure `tsconfig.json` uses strict mode:
 
 ## LSP Communication
 
-Communicate with `../cadmatic-lsp-new` via stdio subprocess:
+Communicate with `../cadmatic-lsp` via stdio subprocess:
 
 ```typescript
 const serverOptions: ServerOptions = () => {

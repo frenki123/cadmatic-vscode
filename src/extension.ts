@@ -7,10 +7,15 @@ import * as fs from 'fs';
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 
-function getLspPath(): string {
+function getLspPath(config: vscode.WorkspaceConfiguration): string {
+    const configuredPath = config.get<string>('lspPath', '');
+    if (configuredPath && fs.existsSync(configuredPath)) {
+        return configuredPath;
+    }
+
     const workspaceRoot = path.resolve(__dirname, '..', '..');
-    const debugLspPath = path.join(workspaceRoot, 'cadmatic-lsp-new', 'target', 'debug', 'cadmatic-cli');
-    const releaseLspPath = path.join(workspaceRoot, 'cadmatic-lsp-new', 'target', 'release', 'cadmatic-cli');
+    const debugLspPath = path.join(workspaceRoot, '..', 'cadmatic-lsp', 'target', 'debug', 'cadmatic-cli.exe');
+    const releaseLspPath = path.join(workspaceRoot, '..', 'cadmatic-lsp', 'target', 'release', 'cadmatic-cli.exe');
     
     try {
         fs.accessSync(releaseLspPath);
@@ -20,8 +25,7 @@ function getLspPath(): string {
     }
 }
 
-function createServerOptions(workspacePath: string): ServerOptions {
-    const lspPath = getLspPath();
+function createServerOptions(workspacePath: string, lspPath: string): ServerOptions {
     
     return async () => {
         const childProcess = spawn(lspPath, ['lsp'], {
@@ -55,11 +59,12 @@ export function activate(context: vscode.ExtensionContext): void {
     const pmsHome = config.get<string>('pmsHome', '');
     
     outputChannel.appendLine(`[LSP] Workspace: ${workspacePath}`);
-    outputChannel.appendLine(`[LSP] Binary: ${getLspPath()}`);
+    outputChannel.appendLine(`[LSP] Binary: ${getLspPath(config)}`);
     outputChannel.appendLine(`[LSP] PMS_RUNDIR: ${pmsRundir || '(from env)'}`);
     outputChannel.appendLine(`[LSP] PMS_HOME: ${pmsHome || '(from env)'}`);
     
-    const serverOptions: ServerOptions = createServerOptions(workspacePath);
+    const lspPath = getLspPath(config);
+    const serverOptions: ServerOptions = createServerOptions(workspacePath, lspPath);
     
     const initializationOptions = {
         pms_rundir: pmsRundir || undefined,
