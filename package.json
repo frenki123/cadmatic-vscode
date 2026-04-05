@@ -7,6 +7,13 @@
   "engines": {
     "vscode": "^1.77.0"
   },
+  "files": [
+    "out/**",
+    "bin/**",
+    "syntaxes/**",
+    "snippets/**",
+    "language-configuration.json"
+  ],
   "categories": [
     "Programming Languages",
     "Syntax Highlighters"

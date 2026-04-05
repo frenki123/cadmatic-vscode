@@ -3,26 +3,71 @@ import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-lan
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 
-function getLspPath(config: vscode.WorkspaceConfiguration): string {
+function getPlatform(): string {
+    const platform = os.platform();
+    const arch = os.arch();
+    
+    if (platform === 'win32') return 'win32-x64';
+    if (platform === 'darwin') {
+        return arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
+    }
+    return 'linux-x64';
+}
+
+function getExeName(): string {
+    return os.platform() === 'win32' ? 'cadmatic-analyze.exe' : 'cadmatic-analyze';
+}
+
+function getBundledPath(context: vscode.ExtensionContext): string | undefined {
+    const extensionPath = context.extensionPath;
+    const platform = getPlatform();
+    const exeName = getExeName();
+    const bundledPath = path.join(extensionPath, 'bin', platform, exeName);
+    
+    if (fs.existsSync(bundledPath)) {
+        return bundledPath;
+    }
+    return undefined;
+}
+
+function getDevPath(): string {
+    const exeName = getExeName();
+    const workspaceRoot = path.resolve(__dirname, '..', '..');
+    const releasePath = path.join(workspaceRoot, '..', 'cadmatic-analyze', 'target', 'release', exeName);
+    const debugPath = path.join(workspaceRoot, '..', 'cadmatic-analyze', 'target', 'debug', exeName);
+    
+    if (fs.existsSync(releasePath)) {
+        return releasePath;
+    }
+    return debugPath;
+}
+
+function getLspPath(config: vscode.WorkspaceConfiguration, context: vscode.ExtensionContext): string {
     const configuredPath = config.get<string>('lspPath', '');
     if (configuredPath && fs.existsSync(configuredPath)) {
         return configuredPath;
     }
-
-    const workspaceRoot = path.resolve(__dirname, '..', '..');
-    const debugLspPath = path.join(workspaceRoot, '..', 'cadmatic-lsp', 'target', 'debug', 'cadmatic-cli.exe');
-    const releaseLspPath = path.join(workspaceRoot, '..', 'cadmatic-lsp', 'target', 'release', 'cadmatic-cli.exe');
     
-    try {
-        fs.accessSync(releaseLspPath);
-        return releaseLspPath;
-    } catch {
-        return debugLspPath;
+    const exeName = getExeName();
+    const pathEnv = process.env.PATH || '';
+    for (const dir of pathEnv.split(path.delimiter)) {
+        const candidate = path.join(dir, exeName);
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
     }
+    
+    const bundledPath = getBundledPath(context);
+    if (bundledPath) {
+        return bundledPath;
+    }
+    
+    return getDevPath();
 }
 
 function createServerOptions(workspacePath: string, lspPath: string): ServerOptions {
@@ -58,12 +103,14 @@ export function activate(context: vscode.ExtensionContext): void {
     const pmsRundir = config.get<string>('pmsRundir', '');
     const pmsHome = config.get<string>('pmsHome', '');
     
+    const lspPath = getLspPath(config, context);
+    
     outputChannel.appendLine(`[LSP] Workspace: ${workspacePath}`);
-    outputChannel.appendLine(`[LSP] Binary: ${getLspPath(config)}`);
+    outputChannel.appendLine(`[LSP] Binary: ${lspPath}`);
+    outputChannel.appendLine(`[LSP] Platform: ${getPlatform()}`);
     outputChannel.appendLine(`[LSP] PMS_RUNDIR: ${pmsRundir || '(from env)'}`);
     outputChannel.appendLine(`[LSP] PMS_HOME: ${pmsHome || '(from env)'}`);
     
-    const lspPath = getLspPath(config);
     const serverOptions: ServerOptions = createServerOptions(workspacePath, lspPath);
     
     const initializationOptions = {
