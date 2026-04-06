@@ -1,0 +1,137 @@
+{
+  "name": "Cadmatic Catppuccin Macchiato",
+  "type": "dark",
+  "colors": {
+    "editor.background": "#24273a",
+    "editor.foreground": "#cad3f5",
+    "editor.lineHighlightBackground": "#363a4f80",
+    "editor.selectionBackground": "#494d64",
+    "editor.inactiveSelectionBackground": "#494d6450",
+    "editorLineNumber.foreground": "#6e738d",
+    "editorLineNumber.activeForeground": "#a5adcb",
+    "editorCursor.foreground": "#f4dbd6",
+    "editor.findMatchBackground": "#eed49f40",
+    "editor.findMatchHighlightBackground": "#eed49f30",
+    "editorBracketMatch.background": "#494d6480",
+    "editorBracketMatch.border": "#8aadf4",
+    "editorGutter.background": "#24273a",
+    "editorWidget.background": "#1e2030",
+    "editorWidget.border": "#494d64",
+    "editorSuggestWidget.background": "#1e2030",
+    "editorSuggestWidget.border": "#494d64",
+    "editorSuggestWidget.selectedBackground": "#363a4f",
+    "editorHoverWidget.background": "#1e2030",
+    "editorHoverWidget.border": "#494d64",
+    "scrollbar.shadow": "#1e2030",
+    "scrollbarSlider.background": "#494d6480",
+    "scrollbarSlider.hoverBackground": "#494d64",
+    "scrollbarSlider.activeBackground": "#5b6078",
+    "statusBar.background": "#1e2030",
+    "statusBar.foreground": "#cad3f5",
+    "titleBar.activeBackground": "#1e2030",
+    "titleBar.activeForeground": "#cad3f5",
+    "activityBar.background": "#1e2030",
+    "activityBar.foreground": "#cad3f5",
+    "sideBar.background": "#1e2030",
+    "sideBar.foreground": "#cad3f5",
+    "panel.background": "#1e2030",
+    "terminal.foreground": "#cad3f5",
+    "terminal.ansiBlack": "#5b6078",
+    "terminal.ansiRed": "#ed8796",
+    "terminal.ansiGreen": "#a6da95",
+    "terminal.ansiYellow": "#eed49f",
+    "terminal.ansiBlue": "#8aadf4",
+    "terminal.ansiMagenta": "#f5bde6",
+    "terminal.ansiCyan": "#8bd5ca",
+    "terminal.ansiWhite": "#b8c0e0",
+    "terminal.ansiBrightBlack": "#5b6078",
+    "terminal.ansiBrightRed": "#ed8796",
+    "terminal.ansiBrightGreen": "#a6da95",
+    "terminal.ansiBrightYellow": "#eed49f",
+    "terminal.ansiBrightBlue": "#8aadf4",
+    "terminal.ansiBrightMagenta": "#f5bde6",
+    "terminal.ansiBrightCyan": "#8bd5ca",
+    "terminal.ansiBrightWhite": "#cad3f5",
+    "errorForeground": "#ed8796",
+    "warningForeground": "#eed49f",
+    "infoForeground": "#8bd5ca"
+  },
+  "tokenColors": [
+    {
+      "scope": "comment",
+      "settings": { "foreground": "#6e738d", "fontStyle": "italic" }
+    },
+    {
+      "scope": "keyword",
+      "settings": { "foreground": "#c6a0f6" }
+    },
+    {
+      "scope": "string",
+      "settings": { "foreground": "#a6da95" }
+    },
+    {
+      "scope": "number",
+      "settings": { "foreground": "#f5a97f" }
+    },
+    {
+      "scope": "operator",
+      "settings": { "foreground": "#91d7e3" }
+    },
+    {
+      "scope": "entity.name.function",
+      "settings": { "foreground": "#8aadf4" }
+    },
+    {
+      "scope": "entity.name.type",
+      "settings": { "foreground": "#eed49f" }
+    },
+    {
+      "scope": "variable.other",
+      "settings": { "foreground": "#f5a97f" }
+    },
+    {
+      "scope": "variable.parameter",
+      "settings": { "foreground": "#ee99a0" }
+    },
+    {
+      "scope": "entity.name.function.preprocessor",
+      "settings": { "foreground": "#f4dbd6" }
+    },
+    {
+      "scope": "support.function",
+      "settings": { "foreground": "#ed8796" }
+    },
+    {
+      "scope": "support.type",
+      "settings": { "foreground": "#eed49f" }
+    },
+    {
+      "scope": "keyword.control",
+      "settings": { "foreground": "#c6a0f6" }
+    },
+    {
+      "scope": "storage.type",
+      "settings": { "foreground": "#eed49f" }
+    },
+    {
+      "scope": "constant.language",
+      "settings": { "foreground": "#f5a97f" }
+    }
+  ],
+  "semanticHighlighting": true,
+  "semanticTokenColors": {
+    "keyword": "#c6a0f6",
+    "operator": "#91d7e3",
+    "string": "#a6da95",
+    "number": "#f5a97f",
+    "comment": "#6e738d",
+    "type": "#eed49f",
+    "function": "#8aadf4",
+    "function.static": "#b7bdf8",
+    "variable": "#f5a97f",
+    "variable.static": "#eed49f",
+    "parameter": "#ee99a0",
+    "macro": "#f4dbd6",
+    "function.defaultLibrary": "#ed8796"
+  }
+}

@@ -91,9 +91,9 @@ function Invoke-Lint {
 }
 
 function Invoke-Compile {
-    Write-Step "Compiling TypeScript..."
-    npm run compile
-    Write-Success "Compilation successful"
+    Write-Step "Building extension with webpack..."
+    npm run vscode:prepublish
+    Write-Success "Build successful"
 }
 
 function Invoke-Tests {

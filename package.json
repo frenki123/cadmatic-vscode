@@ -12,6 +12,7 @@
     "bin/**",
     "syntaxes/**",
     "snippets/**",
+    "themes/**",
     "language-configuration.json"
   ],
   "categories": [
@@ -22,12 +23,18 @@
     "onLanguage:cadmatic"
   ],
   "main": "./out/extension.js",
-    "contributes": {
+  "contributes": {
     "languages": [
       {
         "id": "cadmatic",
-        "aliases": ["CADMATIC", "cadmatic"],
-        "extensions": [".h", ".mac"],
+        "aliases": [
+          "CADMATIC",
+          "cadmatic"
+        ],
+        "extensions": [
+          ".h",
+          ".mac"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -44,11 +51,34 @@
         "path": "./snippets/cadmatic.json"
       }
     ],
+    "themes": [
+      {
+        "label": "Cadmatic Catppuccin Mocha",
+        "path": "./themes/catppuccin-mocha-color-theme.json",
+        "uiTheme": "vs-dark"
+      },
+      {
+        "label": "Cadmatic Catppuccin Macchiato",
+        "path": "./themes/catppuccin-macchiato-color-theme.json",
+        "uiTheme": "vs-dark"
+      },
+      {
+        "label": "Cadmatic Catppuccin Frappé",
+        "path": "./themes/catppuccin-frappe-color-theme.json",
+        "uiTheme": "vs-dark"
+      },
+      {
+        "label": "Cadmatic Catppuccin Latte",
+        "path": "./themes/catppuccin-latte-color-theme.json",
+        "uiTheme": "vs"
+      }
+    ],
     "configurationDefaults": {
       "[cadmatic]": {
         "editor.bracketPairColorization.enabled": true,
         "editor.wordSeparators": "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?",
-        "editor.tabSize": 4
+        "editor.tabSize": 4,
+        "editor.semanticHighlighting.enabled": true
       }
     },
     "configuration": {
@@ -73,20 +103,24 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "webpack --mode production",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "webpack:watch": "webpack --mode development --watch",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.0",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.77.0",
-    "@types/mocha": "^10.0.0",
     "@vscode/test-electron": "^2.3.0",
     "@vscode/vsce": "^3.0.0",
     "eslint": "^8.57.0",
-    "typescript": "^5.3.0"
+    "ts-loader": "^9.5.7",
+    "typescript": "^5.3.0",
+    "webpack": "^5.105.4",
+    "webpack-cli": "^7.0.2"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.0"

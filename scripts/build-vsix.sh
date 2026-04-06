@@ -107,9 +107,9 @@ run_lint() {
 }
 
 compile() {
-    echo_step "Compiling TypeScript..."
-    npm run compile
-    echo_success "Compilation successful"
+    echo_step "Building extension with webpack..."
+    npm run vscode:prepublish
+    echo_success "Build successful"
 }
 
 run_tests() {
