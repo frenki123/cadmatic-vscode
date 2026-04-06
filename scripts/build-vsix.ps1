@@ -7,8 +7,6 @@ param(
     [switch]$Help
 )
 
-$ErrorActionPreference = "Stop"
-
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectDir = Split-Path -Parent $ScriptDir
 
@@ -52,6 +50,11 @@ function Write-Success {
 function Write-Error-Message {
     param([string]$Message)
     Write-Host -ForegroundColor Red "FAIL $Message"
+}
+
+function Write-Warning {
+    param([string]$Message)
+    Write-Host -ForegroundColor Yellow "WARN $Message"
 }
 
 function Test-Prerequisites {
@@ -99,10 +102,89 @@ function Invoke-Tests {
     Write-Success "Tests passed"
 }
 
+function Get-Platform {
+    $platform = $PSVersionTable.Platform
+    if (-not $platform) {
+        $platform = if ($IsWindows) { "win32" } elseif ($IsMacOS) { "darwin" } else { "linux" }
+    }
+    
+    $arch = $PSVersionTable.OSArchitecture
+    if (-not $arch) {
+        $arch = if ($IsArm) { "arm64" } else { "x64" }
+    }
+    
+    switch ($platform) {
+        "win32" { return "win32-x64" }
+        "darwin" { return if ($arch -eq "arm64") { "darwin-arm64" } else { "darwin-x64" } }
+        default { return "linux-x64" }
+    }
+}
+
+function Get-ExeName {
+    param([string]$Platform)
+    if ($Platform -eq "win32-x64") {
+        return "cadmatic-analyze.exe"
+    }
+    return "cadmatic-analyze"
+}
+
 function Invoke-BundleServer {
     Write-Step "Bundling cadmatic-lsp server..."
-    & "$ScriptDir\bundle-server.sh"
-    Write-Success "Server bundled"
+    
+    $platform = Get-Platform
+    $exeName = Get-ExeName -Platform $platform
+    $sourceDir = Join-Path $ProjectDir ".." "cadmatic-analyze" "target" "release"
+    $sourcePath = Join-Path $sourceDir $exeName
+    $destDir = Join-Path $ProjectDir "bin" $platform
+    $destPath = Join-Path $destDir $exeName
+    
+    if (-not (Test-Path $sourcePath)) {
+        Write-Error-Message "CADMATIC LSP binary not found at:"
+        Write-Error-Message "  $sourcePath"
+        Write-Host ""
+        Write-Host "Please compile cadmatic-analyze first:"
+        Write-Host "  cd ..\cadmatic-analyze; cargo build --release"
+        exit 1
+    }
+    
+    $sourceSize = (Get-Item $sourcePath).Length
+    Write-Host "  Source: $sourcePath"
+    Write-Host "  Source size: $sourceSize bytes"
+    
+    if (-not (Test-Path $destDir)) {
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    }
+    
+    if (Test-Path $destPath) {
+        Write-Host "  Removing existing binary..."
+        try {
+            Remove-Item $destPath -Force -ErrorAction Stop
+        } catch {
+            Write-Warning "  Could not remove existing binary (may be in use)"
+        }
+    }
+    
+    try {
+        Copy-Item $sourcePath -Destination $destPath -Force -ErrorAction Stop
+    } catch {
+        Write-Warning "  Copy failed - binary may be in use by VS Code"
+        Write-Warning "  The bundled binary will be updated when VS Code is restarted"
+    }
+    
+    if (Test-Path $destPath) {
+        $destSize = (Get-Item $destPath).Length
+        Write-Host "  Bundled size: $destSize bytes"
+        
+        if ($sourceSize -eq $destSize) {
+            Write-Success "Bundled server to bin\$platform\$exeName"
+        } else {
+            Write-Warning "Size mismatch - binary may not be fully copied"
+            Write-Warning "  Expected: $sourceSize bytes, Got: $destSize bytes"
+        }
+    } else {
+        Write-Error-Message "Bundling failed - binary not created"
+        exit 1
+    }
 }
 
 function New-VsixPackage {
