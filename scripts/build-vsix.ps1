@@ -7,7 +7,7 @@ param(
     [switch]$Help
 )
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $PSCommandPath
 $ProjectDir = Split-Path -Parent $ScriptDir
 
 function Show-Help {
@@ -103,15 +103,15 @@ function Invoke-Tests {
 }
 
 function Get-Platform {
-    $platform = $PSVersionTable.Platform
-    if (-not $platform) {
-        $platform = if ($IsWindows) { "win32" } elseif ($IsMacOS) { "darwin" } else { "linux" }
+    if ($IsWindows) {
+        $platform = "win32"
+    } elseif ($IsMacOS) {
+        $platform = "darwin"
+    } else {
+        $platform = "linux"
     }
     
-    $arch = $PSVersionTable.OSArchitecture
-    if (-not $arch) {
-        $arch = if ($IsArm) { "arm64" } else { "x64" }
-    }
+    $arch = if ($IsArm) { "arm64" } else { "x64" }
     
     switch ($platform) {
         "win32" { return "win32-x64" }
@@ -133,7 +133,7 @@ function Invoke-BundleServer {
     
     $platform = Get-Platform
     $exeName = Get-ExeName -Platform $platform
-    $sourceDir = Join-Path $ProjectDir ".." "cadmatic-analyze" "target" "release"
+    $sourceDir = Join-Path (Split-Path -Parent $ProjectDir) "cadmatic-analyze" "target" "release"
     $sourcePath = Join-Path $sourceDir $exeName
     $destDir = Join-Path $ProjectDir "bin" $platform
     $destPath = Join-Path $destDir $exeName
