@@ -13,7 +13,8 @@
     "syntaxes/**",
     "snippets/**",
     "themes/**",
-    "language-configuration.json"
+    "language-configuration.json",
+    "README.md"
   ],
   "categories": [
     "Programming Languages",
@@ -81,23 +82,79 @@
         "editor.semanticHighlighting.enabled": true
       }
     },
+    "commands": [
+      {
+        "command": "cadmatic.addProject",
+        "title": "CADMATIC: Add Project",
+        "description": "Add a new CADMATIC project profile"
+      },
+      {
+        "command": "cadmatic.deleteProject",
+        "title": "CADMATIC: Delete Project",
+        "description": "Delete a CADMATIC project profile"
+      },
+      {
+        "command": "cadmatic.listProjects",
+        "title": "CADMATIC: List Projects",
+        "description": "List all CADMATIC project profiles"
+      },
+      {
+        "command": "cadmatic.addEnvVar",
+        "title": "CADMATIC: Add Environment Variable",
+        "description": "Add custom environment variable to active project"
+      },
+      {
+        "command": "cadmatic.deleteEnvVar",
+        "title": "CADMATIC: Delete Environment Variable",
+        "description": "Delete custom environment variable from active project"
+      },
+      {
+        "command": "cadmatic.switchProject",
+        "title": "CADMATIC: Switch Project",
+        "description": "Switch between CADMATIC project profiles"
+      },
+      {
+        "command": "cadmatic.restartLsp",
+        "title": "CADMATIC: Restart LSP",
+        "description": "Restart the CADMATIC language server"
+      }
+    ],
     "configuration": {
       "title": "CADMATIC",
       "properties": {
-        "cadmatic.pmsRundir": {
-          "type": "string",
-          "default": "",
-          "description": "PMS_RUNDIR path for include resolution"
-        },
-        "cadmatic.pmsHome": {
-          "type": "string",
-          "default": "",
-          "description": "PMS_HOME path for include resolution"
-        },
         "cadmatic.lspPath": {
           "type": "string",
           "default": "",
           "description": "Path to cadmatic-cli.exe (e.g., C:\\Users\\Frenki\\cadmatic-lsp\\target\\debug\\cadmatic-cli.exe)"
+        },
+        "cadmatic.activeProject": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the active CADMATIC project profile to use"
+        },
+        "cadmatic.projects": {
+          "type": "object",
+          "default": {},
+          "description": "CADMATIC project profiles with environment variables. Example: { \"Project1\": { \"pmsRundir\": \"/path\", \"CUSTOM_VAR\": \"value\" } }",
+          "additionalProperties": {
+            "type": "object",
+            "default": {},
+            "description": "Environment variables for this project",
+            "additionalProperties": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        },
+        "cadmatic.pmsRundir": {
+          "type": "string",
+          "default": "",
+          "description": "[Deprecated] Use cadmatic.projects instead. PMS_RUNDIR path for include resolution"
+        },
+        "cadmatic.pmsHome": {
+          "type": "string",
+          "default": "",
+          "description": "[Deprecated] Use cadmatic.projects instead. PMS_HOME path for include resolution"
         }
       }
     }
@@ -114,9 +171,11 @@
     "@types/mocha": "^10.0.0",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.77.0",
+    "@typescript-eslint/parser": "^8.58.0",
     "@vscode/test-electron": "^2.3.0",
     "@vscode/vsce": "^3.0.0",
     "eslint": "^8.57.0",
+    "mocha": "^11.7.5",
     "ts-loader": "^9.5.7",
     "typescript": "^5.3.0",
     "webpack": "^5.105.4",
