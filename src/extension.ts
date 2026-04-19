@@ -1,17 +1,18 @@
-import * as vscode from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/lib/node/main';
-import { spawn } from 'child_process';
-import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as path from 'path';
+import { spawn } from 'child_process';
 
-type ProjectEnvVars = Record<string, string>;
+import * as vscode from 'vscode';
+import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/lib/node/main';
+
+import { ProjectManagerView, ProjectScope, ProjectViewModel } from './views/project-manager-view';
+
 type ProjectData = {
-    PMS_RUNDIR?: string;
-    PMS_HOME?: string;
-    PMS_CONFDIR?: string;
-    PMS_LANG?: string;
-    [key: string]: string | undefined;
+    installDir: string;
+    lang?: string;
+    projectDir: string;
+    extraEnv: Record<string, string>;
 };
 type ProjectProfiles = Record<string, ProjectData>;
 
@@ -25,6 +26,7 @@ let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
+let projectManagerView: ProjectManagerView | undefined;
 
 const GLOBAL_PROJECTS_KEY = 'cadmatic.globalProjects';
 
@@ -104,10 +106,11 @@ function getGlobalProjects(): ProjectProfiles {
     return extensionContext.globalState.get<ProjectProfiles>(GLOBAL_PROJECTS_KEY) || {};
 }
 
-function setGlobalProjects(projects: ProjectProfiles): void {
+function setGlobalProjects(projects: ProjectProfiles): Thenable<void> {
     if (extensionContext) {
-        extensionContext.globalState.update(GLOBAL_PROJECTS_KEY, projects);
+        return extensionContext.globalState.update(GLOBAL_PROJECTS_KEY, projects);
     }
+    return Promise.resolve();
 }
 
 function getMergedProjects(): { name: string; data: ProjectData; source: 'global' | 'local' }[] {
@@ -136,76 +139,49 @@ function getProjectData(projectName: string): ProjectData | undefined {
     return project?.data;
 }
 
-function getActiveProjectEnv(): { name: string | undefined; vars: ProjectEnvVars } {
+function getProjectsForView(): ProjectViewModel[] {
+    const activeProject = getConfig().activeProject;
+    return getMergedProjects().map(project => ({
+        name: project.name,
+        installDir: project.data.installDir,
+        lang: project.data.lang,
+        projectDir: project.data.projectDir,
+        extraEnv: project.data.extraEnv,
+        source: project.source,
+        active: project.name === activeProject
+    }));
+}
+
+function getActiveProject(): { name: string | undefined; data: ProjectData | undefined } {
     const config = getConfig();
     
     if (config.activeProject) {
         const data = getProjectData(config.activeProject);
         if (data) {
-            return { name: config.activeProject, vars: data as ProjectEnvVars };
+            return { name: config.activeProject, data };
         }
     }
     
     const merged = getMergedProjects();
     if (merged.length > 0) {
-        return { name: merged[0].name, vars: merged[0].data as ProjectEnvVars };
+        return { name: merged[0].name, data: merged[0].data };
     }
     
-    if (config.projects) {
-        const localProjects = Object.entries(config.projects);
-        if (localProjects.length > 0) {
-            return { name: localProjects[0][0], vars: localProjects[0][1] as ProjectEnvVars };
-        }
-    }
-    
-    const legacyConfig = vscode.workspace.getConfiguration('cadmatic');
-    const legacyRundir = legacyConfig.get<string>('pmsRundir', '');
-    const legacyHome = legacyConfig.get<string>('pmsHome', '');
-    
-    if (legacyRundir || legacyHome) {
-        const legacyVars: ProjectEnvVars = {};
-        if (legacyRundir) legacyVars.PMS_RUNDIR = legacyRundir;
-        if (legacyHome) legacyVars.PMS_HOME = legacyHome;
-        return { name: '(legacy)', vars: legacyVars };
-    }
-    
-    return { name: undefined, vars: {} };
+    return { name: undefined, data: undefined };
 }
 
-function buildEnvVars(projectVars: ProjectEnvVars): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = { ...process.env };
-    
-    for (const [key, value] of Object.entries(projectVars)) {
-        if (value) {
-            env[key] = value;
-        }
-    }
-    
-    return env;
-}
-
-function buildInitializationOptions(projectVars: ProjectEnvVars): object {
-    const options: Record<string, string | undefined> = {};
-    
-    for (const [key, value] of Object.entries(projectVars)) {
-        const normalizedKey = key.toLowerCase().replace(/^pms_/, '');
-        options[normalizedKey] = value || undefined;
-    }
-    
+function buildInitializationOptions(projectData: ProjectData | undefined): object {
     return {
-        pms_rundir: options.rundir,
-        pms_home: options.home,
-        pms_confdir: options.confdir,
-        pms_lang: options.lang,
-        pms_projroot: options.projroot,
-        pms_projname: options.projname,
-        env_vars: projectVars
+        install_dir: projectData?.installDir || '',
+        lang: projectData?.lang || 'english',
+        ...(projectData?.projectDir ? { project_dir: projectData.projectDir } : {}),
+        extraEnv: projectData?.extraEnv || {}
     };
 }
 
-function createServerOptions(lspPath: string, envVars: NodeJS.ProcessEnv): ServerOptions {
+function createServerOptions(lspPath: string): ServerOptions {
     return async () => {
-        const childProcess = spawn(lspPath, ['lsp'], { env: envVars });
+        const childProcess = spawn(lspPath, ['lsp']);
 
         childProcess.stderr?.on('data', (chunk: Buffer) => {
             outputChannel?.appendLine(`[LSP stderr] ${chunk.toString()}`);
@@ -255,13 +231,12 @@ function startLSP(): void {
     const config = getConfig();
     const lspPath = getLspPath(config, extensionContext);
     
-    const { name: projectName, vars: projectVars } = getActiveProjectEnv();
+    const { name: projectName, data: projectData } = getActiveProject();
     const merged = getMergedProjects();
     const activeProject = merged.find(p => p.name === projectName);
     
-    const envVars = buildEnvVars(projectVars);
-    const serverOptions = createServerOptions(lspPath, envVars);
-    const initializationOptions = buildInitializationOptions(projectVars);
+    const serverOptions = createServerOptions(lspPath);
+    const initializationOptions = buildInitializationOptions(projectData);
     
     outputChannel?.clear();
     outputChannel?.appendLine(`[LSP] Starting CADMATIC Language Server...`);
@@ -270,16 +245,24 @@ function startLSP(): void {
     outputChannel?.appendLine(`[LSP] Platform: ${getPlatform()}`);
     outputChannel?.appendLine(`[LSP] Project: ${projectName || '(none)'}`);
     
-    if (projectVars) {
-        for (const [key, value] of Object.entries(projectVars)) {
-            if (key.startsWith('PMS_') || key.startsWith('pms_')) {
-                outputChannel?.appendLine(`[LSP]   ${key}=${value}`);
-            }
+    if (projectData?.installDir) {
+        const extraEnv = projectData.extraEnv ?? {};
+        outputChannel?.appendLine(`[LSP]   installDir: ${projectData.installDir}`);
+        if (projectData.lang) {
+            outputChannel?.appendLine(`[LSP]   lang: ${projectData.lang}`);
         }
-    }
-    
-    if (projectName === '(legacy)') {
-        outputChannel?.appendLine(`[LSP] Using legacy config (pmsRundir/pmsHome)`);
+        if (projectData.projectDir) {
+            outputChannel?.appendLine(`[LSP]   projectDir: ${projectData.projectDir}`);
+        }
+        if (Object.keys(extraEnv).length > 0) {
+            outputChannel?.appendLine(`[LSP]   extraEnv: ${JSON.stringify(extraEnv)}`);
+        }
+        if (!fs.existsSync(projectData.installDir)) {
+            outputChannel?.appendLine(`[LSP] WARNING: installDir does not exist`);
+            vscode.window.showWarningMessage(`CADMATIC: installDir does not exist: ${projectData.installDir}`);
+        }
+    } else {
+        outputChannel?.appendLine(`[LSP] WARNING: No project configured. Include resolution may be limited.`);
     }
     
     const clientOptions: LanguageClientOptions = {
@@ -295,250 +278,131 @@ function startLSP(): void {
     client.start();
     
     updateStatusBar(projectName, activeProject?.source);
+    projectManagerView?.refresh();
 }
 
-function migrateProjects(): void {
-    const config = getConfig();
-    const localProjects = config.projects;
-    
-    if (Object.keys(localProjects).length > 0) {
-        const globalProjects = getGlobalProjects();
-        const merged = { ...globalProjects, ...localProjects };
-        setGlobalProjects(merged);
-        
-        vscode.workspace.getConfiguration('cadmatic').update('projects', {}, true);
-        
-        outputChannel?.appendLine(`[Migrated] ${Object.keys(localProjects).length} projects moved to global storage`);
+function isExistingDirectory(pathValue: string): boolean {
+    try {
+        const stats = fs.statSync(pathValue);
+        return stats.isDirectory();
+    } catch {
+        return false;
     }
 }
 
-async function addProject(): Promise<void> {
-    const name = await vscode.window.showInputBox({
-        prompt: 'Enter project name',
-        placeHolder: 'MyProject'
-    });
-    
-    if (!name) return;
-    
-    const pmsRundir = await vscode.window.showInputBox({
-        prompt: 'PMS_RUNDIR (optional)',
-        placeHolder: '/path/to/rundir'
-    });
-    
-    const pmsHome = await vscode.window.showInputBox({
-        prompt: 'PMS_HOME (optional)',
-        placeHolder: '/path/to/home'
-    });
-    
-    const pmsConfdir = await vscode.window.showInputBox({
-        prompt: 'PMS_CONFDIR (optional)',
-        placeHolder: '/path/to/confdir'
-    });
-    
-    const pmsLang = await vscode.window.showInputBox({
-        prompt: 'PMS_LANG (optional)',
-        placeHolder: 'en'
-    });
-    
-    const projectData: ProjectData = {};
-    if (pmsRundir) projectData.PMS_RUNDIR = pmsRundir;
-    if (pmsHome) projectData.PMS_HOME = pmsHome;
-    if (pmsConfdir) projectData.PMS_CONFDIR = pmsConfdir;
-    if (pmsLang) projectData.PMS_LANG = pmsLang;
-    
-    const isGlobal = await vscode.window.showQuickPick<vscode.QuickPickItem>(
-        [
-            { label: 'Global', description: 'Save to global storage (shared across workspaces)' },
-            { label: 'Local', description: 'Save to workspace settings (per workspace)' }
-        ],
-        { placeHolder: 'Save as' }
-    );
-    
-    if (!isGlobal) return;
-    
-    if (isGlobal.label === 'Global') {
+async function saveProject(input: {
+    name: string;
+    installDir: string;
+    lang?: string;
+    projectDir?: string;
+    extraEnv?: Record<string, string>;
+    scope: ProjectScope;
+}): Promise<{ ok: boolean; message: string }> {
+    const name = input.name.trim();
+    const installDir = input.installDir.trim();
+    const lang = input.lang?.trim();
+    const projectDir = input.projectDir?.trim();
+    const extraEnv = input.extraEnv || {};
+
+    if (!name) {
+        return { ok: false, message: 'Project name is required.' };
+    }
+
+    if (getMergedProjects().some(project => project.name === name)) {
+        return { ok: false, message: `Project "${name}" already exists.` };
+    }
+
+    if (!installDir) {
+        return { ok: false, message: 'Install directory is required.' };
+    }
+
+    if (!isExistingDirectory(installDir)) {
+        return { ok: false, message: `Install directory does not exist: ${installDir}` };
+    }
+
+    if (projectDir && !isExistingDirectory(projectDir)) {
+        return { ok: false, message: `Project directory does not exist: ${projectDir}` };
+    }
+
+    const invalidEntry = Object.entries(extraEnv).find(([key, value]) => typeof key !== 'string' || typeof value !== 'string');
+    if (invalidEntry) {
+        return { ok: false, message: 'extraEnv must be a JSON object with string key/value pairs.' };
+    }
+
+    const projectData: ProjectData = {
+        installDir,
+        lang: lang || undefined,
+        projectDir: projectDir || '',
+        extraEnv
+    };
+
+    if (input.scope === 'global') {
         const globalProjects = getGlobalProjects();
         globalProjects[name] = projectData;
-        setGlobalProjects(globalProjects);
+        await setGlobalProjects(globalProjects);
     } else {
         const config = vscode.workspace.getConfiguration('cadmatic');
         const localProjects = config.get<ProjectProfiles>('projects', {});
         localProjects[name] = projectData;
-        await config.update('projects', localProjects, true);
+        await config.update('projects', localProjects, false);
     }
-    
-    vscode.window.showInformationMessage(`Project "${name}" added (${isGlobal})`);
+
     startLSP();
+    return { ok: true, message: `Project "${name}" saved (${input.scope}).` };
 }
 
-async function deleteProject(): Promise<void> {
-    const merged = getMergedProjects();
-    
-    if (merged.length === 0) {
-        vscode.window.showInformationMessage('No projects to delete');
-        return;
+async function deleteProjectByName(projectName: string): Promise<{ ok: boolean; message: string }> {
+    const project = getMergedProjects().find(item => item.name === projectName);
+    if (!project) {
+        return { ok: false, message: `Project "${projectName}" not found.` };
     }
-    
-    const items = merged.map(p => ({
-        label: `${p.name} (${p.source === 'global' ? 'G' : 'L'})`,
-        description: Object.keys(p.data).length > 0 ? Object.keys(p.data).join(', ') : 'No vars',
-        projectName: p.name,
-        source: p.source
-    }));
-    
-    const selected = await vscode.window.showQuickPick(items, {
-        placeHolder: 'Select project to delete'
-    });
-    
-    if (!selected) return;
-    
-    const globalProjects = getGlobalProjects();
-    const localProjects = getConfig().projects;
-    const hasGlobal = !!globalProjects[selected.projectName];
-    const hasLocal = !!localProjects[selected.projectName];
-    
-    if (hasGlobal && hasLocal) {
-        const choice = await vscode.window.showQuickPick(['Global only', 'Local only', 'Both'], {
-            placeHolder: 'Project exists in both. Delete from?'
-        });
-        
-        if (choice === 'Global only' || choice === 'Both') {
-            delete globalProjects[selected.projectName];
-            setGlobalProjects(globalProjects);
-        }
-        if (choice === 'Local only' || choice === 'Both') {
-            delete localProjects[selected.projectName];
-            await vscode.workspace.getConfiguration('cadmatic').update('projects', localProjects, true);
-        }
-    } else if (hasGlobal) {
-        delete globalProjects[selected.projectName];
-        setGlobalProjects(globalProjects);
+
+    if (project.source === 'global') {
+        const globalProjects = getGlobalProjects();
+        delete globalProjects[projectName];
+        await setGlobalProjects(globalProjects);
     } else {
-        delete localProjects[selected.projectName];
-        await vscode.workspace.getConfiguration('cadmatic').update('projects', localProjects, true);
+        const localProjects = getConfig().projects;
+        delete localProjects[projectName];
+        await vscode.workspace.getConfiguration('cadmatic').update('projects', localProjects, false);
     }
-    
-    const currentActive = getConfig().activeProject;
-    if (currentActive === selected.projectName) {
+
+    if (getConfig().activeProject === projectName) {
         await vscode.workspace.getConfiguration('cadmatic').update('activeProject', '', true);
     }
-    
-    vscode.window.showInformationMessage(`Project "${selected.projectName}" deleted`);
+
     startLSP();
+    return { ok: true, message: `Project "${projectName}" deleted.` };
 }
 
-async function listProjects(): Promise<void> {
-    const merged = getMergedProjects();
-    
-    if (merged.length === 0) {
-        vscode.window.showInformationMessage('No projects configured');
-        return;
+async function activateProject(projectName: string): Promise<{ ok: boolean; message: string }> {
+    if (!getProjectData(projectName)) {
+        return { ok: false, message: `Project "${projectName}" not found.` };
     }
-    
-    let message = '## CADMATIC Projects\n\n';
-    
-    for (const p of merged) {
-        message += `### ${p.name} (${p.source === 'global' ? 'Global' : 'Local'})\n`;
-        for (const [key, value] of Object.entries(p.data)) {
-            message += `- ${key}: ${value || '(empty)'}\n`;
-        }
-        message += '\n';
-    }
-    
-    const doc = await vscode.workspace.openTextDocument({ content: message, language: 'markdown' });
-    await vscode.window.showTextDocument(doc);
+    await vscode.workspace.getConfiguration('cadmatic').update('activeProject', projectName, true);
+    startLSP();
+    return { ok: true, message: `Project "${projectName}" is active.` };
 }
 
-async function addEnvVar(): Promise<void> {
-    const { name: projectName } = getActiveProjectEnv();
-    
-    if (!projectName || projectName === '(legacy)') {
-        vscode.window.showWarningMessage('No active project selected');
-        return;
-    }
-    
-    const key = await vscode.window.showInputBox({
-        prompt: 'Enter environment variable name',
-        placeHolder: 'MY_VAR'
+async function pickInstallDir(): Promise<string | undefined> {
+    const selected = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: 'Select install directory'
     });
-    
-    if (!key) return;
-    
-    const value = await vscode.window.showInputBox({
-        prompt: `Enter value for ${key}`,
-        placeHolder: 'value'
-    });
-    
-    if (value === undefined) return;
-    
-    const merged = getMergedProjects();
-    const activeProject = merged.find(p => p.name === projectName);
-    
-    if (!activeProject) {
-        vscode.window.showWarningMessage('Project not found');
-        return;
-    }
-    
-    if (activeProject.source === 'global') {
-        const globalProjects = getGlobalProjects();
-        globalProjects[projectName][key] = value;
-        setGlobalProjects(globalProjects);
-    } else {
-        const localProjects = getConfig().projects;
-        if (!localProjects[projectName]) {
-            localProjects[projectName] = {};
-        }
-        localProjects[projectName][key] = value;
-        await vscode.workspace.getConfiguration('cadmatic').update('projects', localProjects, true);
-    }
-    
-    vscode.window.showInformationMessage(`Added ${key}=${value} to "${projectName}"`);
-    startLSP();
+    return selected?.[0]?.fsPath;
 }
 
-async function deleteEnvVar(): Promise<void> {
-    const { name: projectName } = getActiveProjectEnv();
-    
-    if (!projectName || projectName === '(legacy)') {
-        vscode.window.showWarningMessage('No active project selected');
-        return;
-    }
-    
-    const projectData = getProjectData(projectName);
-    if (!projectData) {
-        vscode.window.showWarningMessage('Project not found');
-        return;
-    }
-    
-    const keys = Object.keys(projectData);
-    if (keys.length === 0) {
-        vscode.window.showInformationMessage('No environment variables in this project');
-        return;
-    }
-    
-    const selected = await vscode.window.showQuickPick(keys, {
-        placeHolder: 'Select variable to delete'
+async function pickProjectDir(): Promise<string | undefined> {
+    const selected = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: 'Select project directory (.pms folder)',
+        defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri
     });
-    
-    if (!selected) return;
-    
-    const merged = getMergedProjects();
-    const activeProject = merged.find(p => p.name === projectName);
-    
-    if (activeProject?.source === 'global') {
-        const globalProjects = getGlobalProjects();
-        delete globalProjects[projectName][selected];
-        setGlobalProjects(globalProjects);
-    } else {
-        const localProjects = getConfig().projects;
-        if (localProjects[projectName]) {
-            delete localProjects[projectName][selected];
-            await vscode.workspace.getConfiguration('cadmatic').update('projects', localProjects, true);
-        }
-    }
-    
-    vscode.window.showInformationMessage(`Deleted ${selected} from "${projectName}"`);
-    startLSP();
+    return selected?.[0]?.fsPath;
 }
 
 function switchProject(): void {
@@ -554,9 +418,7 @@ function switchProject(): void {
     
     const items: vscode.QuickPickItem[] = merged.map(p => ({
         label: `${p.name} (${p.source === 'global' ? 'G' : 'L'})`,
-        description: Object.keys(p.data).length > 0 
-            ? Object.entries(p.data).filter(([k]) => k.startsWith('PMS_')).map(([k, v]) => `${k}=${v}`).join(', ')
-            : 'No PMS vars',
+        description: p.data.installDir,
         picked: p.name === config.activeProject
     }));
     
@@ -564,20 +426,25 @@ function switchProject(): void {
         items.unshift({ label: '(No active project)', description: 'Clear project selection' });
     }
     
-    vscode.window.showQuickPick(items, {
+    void vscode.window.showQuickPick(items, {
         placeHolder: 'Select CADMATIC project',
         canPickMany: false
-    }).then(selection => {
+    }).then(async selection => {
         if (!selection) return;
         
-        if (selection.label === '(No active project)') {
-            vscode.workspace.getConfiguration('cadmatic').update('activeProject', '', true);
-        } else {
-            const selectedName = selection.label.split(' (')[0];
-            vscode.workspace.getConfiguration('cadmatic').update('activeProject', selectedName, true);
+        try {
+            if (selection.label === '(No active project)') {
+                await vscode.workspace.getConfiguration('cadmatic').update('activeProject', '', true);
+            } else {
+                const selectedName = selection.label.split(' (')[0];
+                await activateProject(selectedName);
+                return;
+            }
+            
+            startLSP();
+        } catch (err) {
+            outputChannel?.appendLine(`[Error] Failed to switch project: ${err}`);
         }
-        
-        startLSP();
     });
 }
 
@@ -590,25 +457,20 @@ export function activate(context: vscode.ExtensionContext): void {
     extensionContext = context;
     outputChannel = vscode.window.createOutputChannel('CADMATIC LSP');
     context.subscriptions.push(outputChannel);
-    
+
+projectManagerView = new ProjectManagerView(context, {
+        listProjects: getProjectsForView,
+        saveProject,
+        activateProject,
+        deleteProject: deleteProjectByName,
+        pickInstallDir,
+        pickProjectDir
+    });
+
     context.subscriptions.push(
-        vscode.commands.registerCommand('cadmatic.addProject', addProject)
-    );
-    
-    context.subscriptions.push(
-        vscode.commands.registerCommand('cadmatic.deleteProject', deleteProject)
-    );
-    
-    context.subscriptions.push(
-        vscode.commands.registerCommand('cadmatic.listProjects', listProjects)
-    );
-    
-    context.subscriptions.push(
-        vscode.commands.registerCommand('cadmatic.addEnvVar', addEnvVar)
-    );
-    
-    context.subscriptions.push(
-        vscode.commands.registerCommand('cadmatic.deleteEnvVar', deleteEnvVar)
+        vscode.window.registerWebviewViewProvider('cadmatic.projectManager', projectManagerView, {
+            webviewOptions: { retainContextWhenHidden: true }
+        })
     );
     
     context.subscriptions.push(
@@ -618,8 +480,15 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('cadmatic.restartLsp', restartLsp)
     );
+
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('cadmatic.projects') || event.affectsConfiguration('cadmatic.activeProject')) {
+                projectManagerView?.refresh();
+            }
+        })
+    );
     
-    migrateProjects();
     startLSP();
 }
 

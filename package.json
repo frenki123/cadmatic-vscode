@@ -4,6 +4,10 @@
   "description": "VSCode extension for CADMATIC language server and syntax highlighting",
   "version": "0.0.1",
   "publisher": "cadmatic",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frenki123/cadmatic-vscode"
+  },
   "engines": {
     "vscode": "^1.77.0"
   },
@@ -13,7 +17,9 @@
     "syntaxes/**",
     "snippets/**",
     "themes/**",
+    "media/**",
     "language-configuration.json",
+    "LICENSE",
     "README.md"
   ],
   "categories": [
@@ -21,7 +27,8 @@
     "Syntax Highlighters"
   ],
   "activationEvents": [
-    "onLanguage:cadmatic"
+    "onLanguage:cadmatic",
+    "onView:cadmatic.projectManager"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -74,6 +81,24 @@
         "uiTheme": "vs"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cadmatic-projects",
+          "title": "CADMATIC",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cadmatic-projects": [
+        {
+          "id": "cadmatic.projectManager",
+          "name": "Project Manager",
+          "type": "webview"
+        }
+      ]
+    },
     "configurationDefaults": {
       "[cadmatic]": {
         "editor.bracketPairColorization.enabled": true,
@@ -83,31 +108,6 @@
       }
     },
     "commands": [
-      {
-        "command": "cadmatic.addProject",
-        "title": "CADMATIC: Add Project",
-        "description": "Add a new CADMATIC project profile"
-      },
-      {
-        "command": "cadmatic.deleteProject",
-        "title": "CADMATIC: Delete Project",
-        "description": "Delete a CADMATIC project profile"
-      },
-      {
-        "command": "cadmatic.listProjects",
-        "title": "CADMATIC: List Projects",
-        "description": "List all CADMATIC project profiles"
-      },
-      {
-        "command": "cadmatic.addEnvVar",
-        "title": "CADMATIC: Add Environment Variable",
-        "description": "Add custom environment variable to active project"
-      },
-      {
-        "command": "cadmatic.deleteEnvVar",
-        "title": "CADMATIC: Delete Environment Variable",
-        "description": "Delete custom environment variable from active project"
-      },
       {
         "command": "cadmatic.switchProject",
         "title": "CADMATIC: Switch Project",
@@ -125,7 +125,7 @@
         "cadmatic.lspPath": {
           "type": "string",
           "default": "",
-          "description": "Path to cadmatic-cli.exe (e.g., C:\\Users\\Frenki\\cadmatic-lsp\\target\\debug\\cadmatic-cli.exe)"
+          "description": "Path to cadmatic-analyze.exe (e.g., C:\\path\\to\\cadmatic-analyze.exe)"
         },
         "cadmatic.activeProject": {
           "type": "string",
@@ -135,26 +135,35 @@
         "cadmatic.projects": {
           "type": "object",
           "default": {},
-          "description": "CADMATIC project profiles with environment variables. Example: { \"Project1\": { \"pmsRundir\": \"/path\", \"CUSTOM_VAR\": \"value\" } }",
+          "description": "CADMATIC project profiles with installation directories.",
           "additionalProperties": {
             "type": "object",
-            "default": {},
-            "description": "Environment variables for this project",
-            "additionalProperties": {
-              "type": "string",
-              "default": ""
-            }
+            "properties": {
+              "installDir": {
+                "type": "string",
+                "description": "CADMATIC installation directory (required)"
+              },
+              "lang": {
+                "type": "string",
+                "default": "english",
+                "description": "Language for diagnostics (optional)"
+              },
+              "projectDir": {
+                "type": "string",
+                "default": "",
+                "description": "Path to .pms project directory (optional)"
+              },
+              "extraEnv": {
+                "type": "object",
+                "default": {},
+                "description": "Extra environment variables for include resolution",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["installDir"]
           }
-        },
-        "cadmatic.pmsRundir": {
-          "type": "string",
-          "default": "",
-          "description": "[Deprecated] Use cadmatic.projects instead. PMS_RUNDIR path for include resolution"
-        },
-        "cadmatic.pmsHome": {
-          "type": "string",
-          "default": "",
-          "description": "[Deprecated] Use cadmatic.projects instead. PMS_HOME path for include resolution"
         }
       }
     }
