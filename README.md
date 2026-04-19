@@ -26,11 +26,20 @@ code --install-extension vscode-cadmatic-0.0.1.vsix
 | `CADMATIC: Switch Project` | Switch between projects |
 | `CADMATIC: Add Environment Variable` | Add custom env var to active project |
 | `CADMATIC: Delete Environment Variable` | Remove env var from active project |
+| `CADMATIC: Examples Live Grep` | Open VS Code search scoped to active project examples directory |
+| `CADMATIC: Examples Search Word` | Search word under cursor in active project examples directory |
 | `CADMATIC: Restart LSP` | Restart language server |
+
+Default keybinding:
+- `Ctrl+Alt+Shift+F` -> `CADMATIC: Examples Search Word` (only in CADMATIC editor)
 
 ## Project Configuration
 
 Projects can be stored globally (shared across workspaces) or locally (per workspace).
+
+Examples directory is derived from `installDir` automatically:
+- `installDir` must end with `co` + exactly 3 digits (for example `co252`)
+- examples path is `<installDir>/pms<digits>0` (for example `.../co252/pms2520`)
 
 ### Add Project Flow
 

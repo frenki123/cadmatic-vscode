@@ -117,6 +117,23 @@
         "command": "cadmatic.restartLsp",
         "title": "CADMATIC: Restart LSP",
         "description": "Restart the CADMATIC language server"
+      },
+      {
+        "command": "cadmatic.examplesLiveGrep",
+        "title": "CADMATIC: Examples Live Grep",
+        "description": "Search in active CADMATIC examples directory"
+      },
+      {
+        "command": "cadmatic.examplesWord",
+        "title": "CADMATIC: Examples Search Word",
+        "description": "Search word under cursor in active CADMATIC examples directory"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cadmatic.examplesWord",
+        "key": "ctrl+alt+shift+f",
+        "when": "editorTextFocus && editorLangId == cadmatic"
       }
     ],
     "configuration": {

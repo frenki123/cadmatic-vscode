@@ -1,4 +1,7 @@
 import * as assert from 'assert';
+import * as path from 'path';
+
+import { deriveExamplesDirFromInstallDir } from '../examples-search';
 
 suite('CADMATIC Extension Tests', function() {
 
@@ -115,5 +118,24 @@ suite('CADMATIC Extension Tests', function() {
         assert.strictEqual(isExistingDirectory('/nonexistent/path'), false);
         assert.strictEqual(isExistingDirectory(__filename), false);
         assert.strictEqual(isExistingDirectory(__dirname), true);
+    });
+
+    test('Examples directory derivation from installDir', function() {
+        const installDir = path.join('C:', 'Cadmatic', 'co252');
+        const result = deriveExamplesDirFromInstallDir(installDir);
+
+        assert.strictEqual(result.ok, true);
+        if (result.ok) {
+            assert.strictEqual(result.examplesDir, path.join(installDir, 'pms2520'));
+        }
+    });
+
+    test('Examples directory derivation rejects invalid co suffix', function() {
+        const result = deriveExamplesDirFromInstallDir(path.join('C:', 'Cadmatic', 'co25'));
+
+        assert.strictEqual(result.ok, false);
+        if (!result.ok) {
+            assert.match(result.error, /co<3 digits>/);
+        }
     });
 });

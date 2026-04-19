@@ -6,6 +6,7 @@ import { spawn } from 'child_process';
 import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/lib/node/main';
 
+import { deriveExamplesDirFromInstallDir } from './examples-search';
 import { ProjectManagerView, ProjectScope, ProjectViewModel } from './views/project-manager-view';
 
 type ProjectData = {
@@ -290,6 +291,78 @@ function isExistingDirectory(pathValue: string): boolean {
     }
 }
 
+function getExamplesDirectoryForActiveProject(): string | undefined {
+    const { name: projectName, data: projectData } = getActiveProject();
+
+    if (!projectName || !projectData) {
+        vscode.window.showWarningMessage('No active CADMATIC project configured.');
+        return undefined;
+    }
+
+    if (!projectData.installDir) {
+        vscode.window.showWarningMessage(`Active project "${projectName}" has no installDir.`);
+        return undefined;
+    }
+
+    const examplesDirResult = deriveExamplesDirFromInstallDir(projectData.installDir);
+    if (!examplesDirResult.ok) {
+        vscode.window.showWarningMessage(
+            `Active project "${projectName}" has invalid installDir "${projectData.installDir}": ${examplesDirResult.error}`
+        );
+        return undefined;
+    }
+
+    if (!isExistingDirectory(examplesDirResult.examplesDir)) {
+        vscode.window.showErrorMessage(`CADMATIC examples directory does not exist: ${examplesDirResult.examplesDir}`);
+        return undefined;
+    }
+
+    return examplesDirResult.examplesDir;
+}
+
+async function runExamplesSearch(query: string): Promise<void> {
+    const examplesDir = getExamplesDirectoryForActiveProject();
+    if (!examplesDir) {
+        return;
+    }
+
+    await vscode.commands.executeCommand('workbench.action.findInFiles', {
+        query,
+        filesToInclude: examplesDir,
+        triggerSearch: true,
+        isRegex: false
+    });
+}
+
+function examplesLiveGrep(initialQuery?: unknown): void {
+    const query = typeof initialQuery === 'string' ? initialQuery : '';
+    void runExamplesSearch(query);
+}
+
+function examplesWord(): void {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showWarningMessage('No active editor for CADMATIC examples word search.');
+        return;
+    }
+
+    const selectedText = editor.document.getText(editor.selection).trim();
+    const word = selectedText || (() => {
+        const range = editor.document.getWordRangeAtPosition(editor.selection.active);
+        if (!range) {
+            return '';
+        }
+        return editor.document.getText(range).trim();
+    })();
+
+    if (!word) {
+        vscode.window.showWarningMessage('No word under cursor.');
+        return;
+    }
+
+    void runExamplesSearch(word);
+}
+
 async function saveProject(input: {
     name: string;
     installDir: string;
@@ -479,6 +552,14 @@ projectManagerView = new ProjectManagerView(context, {
     
     context.subscriptions.push(
         vscode.commands.registerCommand('cadmatic.restartLsp', restartLsp)
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cadmatic.examplesLiveGrep', examplesLiveGrep)
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cadmatic.examplesWord', examplesWord)
     );
 
     context.subscriptions.push(
